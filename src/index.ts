@@ -13,10 +13,10 @@ const API_PREFIX = `/api/${API_VERSION}`;
 const BASE_URL = `${PROTOCOL}://${HOST}${[80, 443].includes(Number(PORT)) ? "" : `:${PORT}`}`;
 
 Server.listen(PORT, () => {
-  console.log(clc.blueBright("────────────────────────────────────────────"));
-  console.log(`${clc.green("🚀 Server is running")} in ${clc.whiteBright(ENV)} mode`);
-  console.log(`${clc.cyan("🌐 Base URL")}     : ${clc.whiteBright(BASE_URL)}`);
-  console.log(`${clc.cyan("📁 API Prefix")}  : ${clc.whiteBright(API_PREFIX)}`);
-  console.log(`${clc.cyan("📦 Port")}        : ${clc.whiteBright(PORT)}`);
-  console.log(clc.blueBright("────────────────────────────────────────────"));
+    console.log(clc.blueBright("────────────────────────────────────────────"));
+    console.log(`${clc.green("🚀 Server is running")} in ${clc.whiteBright(ENV)} mode`);
+    console.log(`${clc.cyan("🌐 Base URL")}     : ${clc.whiteBright(BASE_URL)}`);
+    console.log(`${clc.cyan("📁 API Prefix")}  : ${clc.whiteBright(API_PREFIX)}`);
+    console.log(`${clc.cyan("📦 Port")}        : ${clc.whiteBright(PORT)}`);
+    console.log(clc.blueBright("────────────────────────────────────────────"));
 });

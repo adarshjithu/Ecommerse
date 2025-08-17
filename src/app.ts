@@ -3,8 +3,8 @@ import http from "http";
 import dotenv from "dotenv";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
-
-// Custom middlewares & configs
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./config/swagger";
 import errorHandler from "./middlewares/errorHandler.js";
 import corsConfig from "./config/corsConfig.js";
 
@@ -36,6 +36,7 @@ app.use(morgan("dev"));
 const API_VERSION = process.env.API_VERSION || "v1";
 const API_PREFIX = `/api/${API_VERSION}`;
 
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use(`${API_PREFIX}/user`, userRoutes);
 app.use(`${API_PREFIX}/admin`, adminRoutes);
 
@@ -43,7 +44,7 @@ app.use(`${API_PREFIX}/admin`, adminRoutes);
 
 // 404 Handler
 app.use((req, res) => {
-  res.status(404).json({ success: false, message: "Route not found" });
+    res.status(404).json({ success: false, message: "Route not found" });
 });
 
 // Centralized error handler

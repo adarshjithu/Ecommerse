@@ -8,7 +8,8 @@ const http_1 = __importDefault(require("http"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const morgan_1 = __importDefault(require("morgan"));
 const cookie_parser_1 = __importDefault(require("cookie-parser"));
-// Custom middlewares & configs
+const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
+const swagger_1 = require("./config/swagger");
 const errorHandler_js_1 = __importDefault(require("./middlewares/errorHandler.js"));
 const corsConfig_js_1 = __importDefault(require("./config/corsConfig.js"));
 // Routes
@@ -30,6 +31,7 @@ app.use((0, morgan_1.default)("dev"));
 // ========== Routes ==========
 const API_VERSION = process.env.API_VERSION || "v1";
 const API_PREFIX = `/api/${API_VERSION}`;
+app.use("/api-docs", swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(swagger_1.swaggerSpec));
 app.use(`${API_PREFIX}/user`, userRoutes_js_1.default);
 app.use(`${API_PREFIX}/admin`, adminRoutes_js_1.default);
 // ========== Error & 404 Handlers ==========
