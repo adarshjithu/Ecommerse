@@ -8,6 +8,9 @@ export class BaseRepository<T extends Document> {
     this.model = model;
   }
 
+  async findByQuery(query:any):Promise<any>{
+       return await this.model.findOne(query)
+  }
   async create(data: Partial<T>): Promise<T> {
     const doc = new this.model(data);
     return await doc.save();

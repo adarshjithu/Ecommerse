@@ -1,9 +1,11 @@
 import Server from "./app";
 import dotenv from "dotenv";
 import clc from "cli-color";
-
+import './config/index';
+import { connectDatabase } from "./config/connectDatabse";
 
 dotenv.config();
+connectDatabase()
 const PROTOCOL = process.env.PROTOCOL || "http";
 const HOST = process.env.HOST || "localhost";
 const PORT = process.env.PORT || 5000;

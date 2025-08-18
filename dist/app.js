@@ -32,7 +32,7 @@ app.use((0, morgan_1.default)("dev"));
 const API_VERSION = process.env.API_VERSION || "v1";
 const API_PREFIX = `/api/${API_VERSION}`;
 app.use("/api-docs", swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(swagger_1.swaggerSpec));
-app.use(`${API_PREFIX}/user`, userRoutes_js_1.default);
+app.use(`${API_PREFIX}/`, userRoutes_js_1.default);
 app.use(`${API_PREFIX}/admin`, adminRoutes_js_1.default);
 // ========== Error & 404 Handlers ==========
 // 404 Handler

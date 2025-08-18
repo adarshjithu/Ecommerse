@@ -14,6 +14,11 @@ class BaseRepository {
     constructor(model) {
         this.model = model;
     }
+    findByQuery(query) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield this.model.findOne(query);
+        });
+    }
     create(data) {
         return __awaiter(this, void 0, void 0, function* () {
             const doc = new this.model(data);

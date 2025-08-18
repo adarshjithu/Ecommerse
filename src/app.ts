@@ -37,7 +37,7 @@ const API_VERSION = process.env.API_VERSION || "v1";
 const API_PREFIX = `/api/${API_VERSION}`;
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-app.use(`${API_PREFIX}/user`, userRoutes);
+app.use(`${API_PREFIX}/`, userRoutes);
 app.use(`${API_PREFIX}/admin`, adminRoutes);
 
 // ========== Error & 404 Handlers ==========
