@@ -128,4 +128,73 @@ export class AuthController {
             next(error);
         }
     }
+
+    // @description: Login user with email OTP
+    // @route: POST /api/v1/auth/email-login
+    async userLoginWithEmailOtp(req: Request, res: Response, next: NextFunction) {
+        try {
+
+            const {email,verificationId}= req.body;
+            if(!email||!verificationId) throw new NotFoundError("Invalid credentials");
+
+            if(!mongoose.Types.ObjectId.isValid(verificationId)) throw new BadRequestError("Invalid verificationId")
+        
+            const { user, accessToken, refreshToken } = await this.authService.loginWithEmailOtp({email,verificationId})
+
+            res.cookie("ecom-access-token", accessToken, {
+                httpOnly: true,
+                secure: SECURE,
+                sameSite: "strict",
+                maxAge: Number(ACCESS_TOKEN_MAXAGE),
+            })
+                .cookie("ecom-refresh-token", refreshToken, {
+                    httpOnly: true,
+                    secure: SECURE,
+                    sameSite: "strict",
+                    maxAge: Number(REFRESH_TOKEN_MAXAGE),
+                })
+                .status(STATUS_CODES.CREATED)
+                .json({
+                    success: true,
+                    message: "User login successful",
+                    user,
+                });
+        } catch (error) {
+            next(error);
+        }
+    }
+    // @description: Login user with phone OTP
+    // @route: POST /api/v1/auth/email-login
+    async userLoginWithPhoneOtp(req: Request, res: Response, next: NextFunction) {
+        try {
+
+            const {phone,verificationId,code}= req.body;
+            if(!phone||!verificationId||code) throw new NotFoundError("Invalid credentials");
+
+            if(!mongoose.Types.ObjectId.isValid(verificationId)) throw new BadRequestError("Invalid verificationId")
+        
+            const { user, accessToken, refreshToken } = await this.authService.loginWithMobileOtp({phone,code,verificationId})
+
+            res.cookie("ecom-access-token", accessToken, {
+                httpOnly: true,
+                secure: SECURE,
+                sameSite: "strict",
+                maxAge: Number(ACCESS_TOKEN_MAXAGE),
+            })
+                .cookie("ecom-refresh-token", refreshToken, {
+                    httpOnly: true,
+                    secure: SECURE,
+                    sameSite: "strict",
+                    maxAge: Number(REFRESH_TOKEN_MAXAGE),
+                })
+                .status(STATUS_CODES.CREATED)
+                .json({
+                    success: true,
+                    message: "User login successful",
+                    user,
+                });
+        } catch (error) {
+            next(error);
+        }
+    }
 }

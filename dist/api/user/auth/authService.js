@@ -265,5 +265,55 @@ class AuthService {
             return { accessToken, refreshToken, user: newUser };
         });
     }
+    // Login with email OTP
+    loginWithEmailOtp(_a) {
+        return __awaiter(this, arguments, void 0, function* ({ email, verificationId }) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email))
+                throw new customErrors_1.BadRequestError("Please provide a valid email address");
+            const otpData = yield this.otpRepository.findOne({ _id: verificationId, target: email });
+            if (!otpData) {
+                throw new customErrors_1.NotFoundError("Invalid or expired verification request. Please request a new OTP.");
+            }
+            const user = yield this.authRepository.findOne({ email: email });
+            if (!user)
+                throw new customErrors_1.NotFoundError("No account found with this email address");
+            if (!(user === null || user === void 0 ? void 0 : user.isEmailVerified))
+                throw new customErrors_1.UnAuthorizedError("Your email is not verified. Please verify your email to continue.");
+            if (user === null || user === void 0 ? void 0 : user.isBlocked)
+                throw new customErrors_1.ForbiddenError("Your account has been blocked. Contact support for assistance.");
+            if (user === null || user === void 0 ? void 0 : user.isDeleted)
+                throw new customErrors_1.ResourceGoneError("This account has been deleted.");
+            const newUser = user.toObject();
+            const accessToken = (0, tokenUtils_1.generateAccessToken)({ userId: user === null || user === void 0 ? void 0 : user._id, role: user === null || user === void 0 ? void 0 : user.role });
+            const refreshToken = (0, tokenUtils_1.generateRefreshToken)({ userId: user === null || user === void 0 ? void 0 : user._id, role: user === null || user === void 0 ? void 0 : user.role });
+            return { accessToken, refreshToken, user: newUser };
+        });
+    }
+    // Login with mobile OTP
+    loginWithMobileOtp(_a) {
+        return __awaiter(this, arguments, void 0, function* ({ phone, code, verificationId }) {
+            const phoneRegex = /^\d{10,15}$/;
+            if (!phoneRegex.test(phone))
+                throw new customErrors_1.BadRequestError("Invalid phone number");
+            const otpData = yield this.otpRepository.findOne({ _id: verificationId, target: phone, code });
+            if (!otpData) {
+                throw new customErrors_1.NotFoundError("Invalid verificationId");
+            }
+            const user = yield this.authRepository.findOne({ phone: { number: phone, code: code } });
+            if (!user)
+                throw new customErrors_1.NotFoundError("No account found with this phonenumber");
+            if (!(user === null || user === void 0 ? void 0 : user.isEmailVerified))
+                throw new customErrors_1.UnAuthorizedError("Your email is not verified. Please verify your email to continue.");
+            if (user === null || user === void 0 ? void 0 : user.isBlocked)
+                throw new customErrors_1.ForbiddenError("Your account has been blocked. Contact support for assistance.");
+            if (user === null || user === void 0 ? void 0 : user.isDeleted)
+                throw new customErrors_1.ResourceGoneError("This account has been deleted.");
+            const newUser = user.toObject();
+            const accessToken = (0, tokenUtils_1.generateAccessToken)({ userId: user === null || user === void 0 ? void 0 : user._id, role: user === null || user === void 0 ? void 0 : user.role });
+            const refreshToken = (0, tokenUtils_1.generateRefreshToken)({ userId: user === null || user === void 0 ? void 0 : user._id, role: user === null || user === void 0 ? void 0 : user.role });
+            return { accessToken, refreshToken, user: newUser };
+        });
+    }
 }
 exports.AuthService = AuthService;

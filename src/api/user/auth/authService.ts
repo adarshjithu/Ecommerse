@@ -306,4 +306,56 @@ export class AuthService {
         const refreshToken = generateRefreshToken({ userId: user?._id, role: user?.role });
         return { accessToken, refreshToken, user: newUser };
     }
+
+    // Login with email OTP
+    async loginWithEmailOtp({ email, verificationId }: { email: string; verificationId: string }): Promise<IAuthResponse> {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) throw new BadRequestError("Please provide a valid email address");
+
+        const otpData = await this.otpRepository.findOne({ _id: verificationId, target: email });
+        if (!otpData) {
+            throw new NotFoundError("Invalid or expired verification request. Please request a new OTP.");
+        }
+
+        const user = await this.authRepository.findOne({ email: email });
+        if (!user) throw new NotFoundError("No account found with this email address");
+
+        if (!user?.isEmailVerified) throw new UnAuthorizedError("Your email is not verified. Please verify your email to continue.");
+
+        if (user?.isBlocked) throw new ForbiddenError("Your account has been blocked. Contact support for assistance.");
+
+        if (user?.isDeleted) throw new ResourceGoneError("This account has been deleted.");
+
+        const newUser = user.toObject();
+        const accessToken = generateAccessToken({ userId: user?._id, role: user?.role });
+        const refreshToken = generateRefreshToken({ userId: user?._id, role: user?.role });
+
+        return { accessToken, refreshToken, user: newUser };
+    }
+
+    // Login with mobile OTP
+    async loginWithMobileOtp({ phone, code, verificationId }: { phone: string; code: string; verificationId: string }): Promise<IAuthResponse> {
+        const phoneRegex = /^\d{10,15}$/;
+        if (!phoneRegex.test(phone)) throw new BadRequestError("Invalid phone number");
+
+        const otpData = await this.otpRepository.findOne({ _id: verificationId, target: phone, code });
+        if (!otpData) {
+            throw new NotFoundError("Invalid verificationId");
+        }
+
+        const user = await this.authRepository.findOne({ phone: { number: phone, code: code } });
+        
+        if (!user) throw new NotFoundError("No account found with this phonenumber");
+
+        if (!user?.isEmailVerified) throw new UnAuthorizedError("Your email is not verified. Please verify your email to continue.");
+
+        if (user?.isBlocked) throw new ForbiddenError("Your account has been blocked. Contact support for assistance.");
+
+        if (user?.isDeleted) throw new ResourceGoneError("This account has been deleted.");
+
+        const newUser = user.toObject();
+        const accessToken = generateAccessToken({ userId: user?._id, role: user?.role });
+        const refreshToken = generateRefreshToken({ userId: user?._id, role: user?.role });
+        return { accessToken, refreshToken, user: newUser };
+    }
 }

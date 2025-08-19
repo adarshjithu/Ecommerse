@@ -149,5 +149,75 @@ class AuthController {
             }
         });
     }
+    // @description: Login user with email OTP
+    // @route: POST /api/v1/auth/email-login
+    userLoginWithEmailOtp(req, res, next) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { email, verificationId } = req.body;
+                if (!email || !verificationId)
+                    throw new customErrors_1.NotFoundError("Invalid credentials");
+                if (!mongoose_1.default.Types.ObjectId.isValid(verificationId))
+                    throw new customErrors_1.BadRequestError("Invalid verificationId");
+                const { user, accessToken, refreshToken } = yield this.authService.loginWithEmailOtp({ email, verificationId });
+                res.cookie("ecom-access-token", accessToken, {
+                    httpOnly: true,
+                    secure: config_1.SECURE,
+                    sameSite: "strict",
+                    maxAge: Number(config_1.ACCESS_TOKEN_MAXAGE),
+                })
+                    .cookie("ecom-refresh-token", refreshToken, {
+                    httpOnly: true,
+                    secure: config_1.SECURE,
+                    sameSite: "strict",
+                    maxAge: Number(config_1.REFRESH_TOKEN_MAXAGE),
+                })
+                    .status(statusCodes_1.STATUS_CODES.CREATED)
+                    .json({
+                    success: true,
+                    message: "User login successful",
+                    user,
+                });
+            }
+            catch (error) {
+                next(error);
+            }
+        });
+    }
+    // @description: Login user with phone OTP
+    // @route: POST /api/v1/auth/email-login
+    userLoginWithPhoneOtp(req, res, next) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { phone, verificationId, code } = req.body;
+                if (!phone || !verificationId || code)
+                    throw new customErrors_1.NotFoundError("Invalid credentials");
+                if (!mongoose_1.default.Types.ObjectId.isValid(verificationId))
+                    throw new customErrors_1.BadRequestError("Invalid verificationId");
+                const { user, accessToken, refreshToken } = yield this.authService.loginWithMobileOtp({ phone, code, verificationId });
+                res.cookie("ecom-access-token", accessToken, {
+                    httpOnly: true,
+                    secure: config_1.SECURE,
+                    sameSite: "strict",
+                    maxAge: Number(config_1.ACCESS_TOKEN_MAXAGE),
+                })
+                    .cookie("ecom-refresh-token", refreshToken, {
+                    httpOnly: true,
+                    secure: config_1.SECURE,
+                    sameSite: "strict",
+                    maxAge: Number(config_1.REFRESH_TOKEN_MAXAGE),
+                })
+                    .status(statusCodes_1.STATUS_CODES.CREATED)
+                    .json({
+                    success: true,
+                    message: "User login successful",
+                    user,
+                });
+            }
+            catch (error) {
+                next(error);
+            }
+        });
+    }
 }
 exports.AuthController = AuthController;

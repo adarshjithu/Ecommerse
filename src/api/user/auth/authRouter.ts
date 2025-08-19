@@ -11,10 +11,12 @@ const otpRepository =  new OtpRepository()
 const authService = new AuthService(authRepository,otpRepository);
 const controller = new AuthController(authService);
 
-authRouter.post("/register",(req,res,next)=>controller.register(req,res,next));
+
 authRouter.post("/send-otp", (req, res, next) => controller.sendOTP(req, res, next));
 authRouter.post("/verify-otp", (req, res, next) => controller.verifyOtp(req, res, next));
 authRouter.post("/register",(req,res,next)=>controller.register(req,res,next));
-authRouter.post("/login",(req,res,next)=>controller.userLogin(req,res,next))
+authRouter.post("/login",(req,res,next)=>controller.userLogin(req,res,next));
+authRouter.post('/login-email',(req,res,next)=>controller.userLoginWithEmailOtp(req,res,next));
+authRouter.post("/login-phone",(req,res,next)=>controller.userLoginWithPhoneOtp(req,res,next));
 
 export default authRouter;
