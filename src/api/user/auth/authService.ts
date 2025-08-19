@@ -1,9 +1,12 @@
 import { BadRequestError, ConflictError, NotFoundError } from "../../../constants/constants/customErrors";
 import otpModel, { IOtp } from "../../../models/otpModel";
+import { IUser } from "../../../models/userModel";
 import { OtpRepository } from "../../../repository/otpRepository";
 import { sendEmail } from "../../../utils/mail/sendMail";
 import { generateOtp } from "../../../utils/otp/generateOtp";
+import { hashPassword } from "../../../utils/password/passwordUtils";
 import { sendOtpToPhone } from "../../../utils/phone/sendOtpToPhone";
+import { generateAccessToken, generateRefreshToken } from "../../../utils/token/tokenUtils";
 import { AuthRepository } from "./authRepository";
 
 interface OtpPayload {
@@ -41,7 +44,7 @@ export class AuthService {
         if (method === "phone") otpQuery.code = code;
 
         const existingOtpData = await this.otpRepository.findByQuery(otpQuery);
-        
+
         if (existingOtpData && existingOtpData.expiresAt > new Date()) {
             throw new ConflictError("OTP already sent. Please try again after it expires.");
         }
@@ -110,4 +113,41 @@ export class AuthService {
         await otpObj.save();
         return otpObj;
     }
+
+// User registration
+async registerUser({ email, phone, password, name,verificationMethod }: IUser&{verificationMethod:string}): Promise<{ accessToken: string; refreshToken: string; user: IUser }> {
+    // Check if email already exists
+    const existingEmail = await this.authRepository.findOne({ email });
+    if (existingEmail) throw new ConflictError("Email already in use");
+
+    // Check if phone already exists
+    const existingPhone = await this.authRepository.findOne({ phone });
+    if (existingPhone) throw new ConflictError("Phone number already in use");
+
+    // Hash password
+    const hashedPassword = await hashPassword(password);
+
+    const newUser:any = {
+        name,
+        email,
+        phone,
+        password: hashedPassword,
+        
+    }
+    if(verificationMethod=='email') newUser.isEmailVerified = true;
+    if(verificationMethod=='phone') newUser.isPhoneVerified = true;
+    if(verificationMethod=='google') newUser.isGoogleVerified = true;
+    
+    // Create user
+    const userDoc = await this.authRepository.create(newUser);
+    
+    // Generate tokens
+    const accessToken = generateAccessToken({ userId: userDoc._id, role: userDoc.role });
+    const refreshToken = generateRefreshToken({ userId: userDoc._id, role: userDoc.role });
+
+    // Convert mongoose doc -> plain object and remove password
+    const user = userDoc.toObject();
+    delete user.password;
+
+    return { user, accessToken, refreshToken };}
 }

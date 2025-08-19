@@ -13,7 +13,9 @@ exports.AuthService = void 0;
 const customErrors_1 = require("../../../constants/constants/customErrors");
 const sendMail_1 = require("../../../utils/mail/sendMail");
 const generateOtp_1 = require("../../../utils/otp/generateOtp");
+const passwordUtils_1 = require("../../../utils/password/passwordUtils");
 const sendOtpToPhone_1 = require("../../../utils/phone/sendOtpToPhone");
+const tokenUtils_1 = require("../../../utils/token/tokenUtils");
 class AuthService {
     constructor(authRepository, otpRepository) {
         this.authRepository = authRepository;
@@ -102,6 +104,42 @@ class AuthService {
             otpObj.isUsed = true;
             yield otpObj.save();
             return otpObj;
+        });
+    }
+    // User registration
+    registerUser(_a) {
+        return __awaiter(this, arguments, void 0, function* ({ email, phone, password, name, verificationMethod }) {
+            // Check if email already exists
+            const existingEmail = yield this.authRepository.findOne({ email });
+            if (existingEmail)
+                throw new customErrors_1.ConflictError("Email already in use");
+            // Check if phone already exists
+            const existingPhone = yield this.authRepository.findOne({ phone });
+            if (existingPhone)
+                throw new customErrors_1.ConflictError("Phone number already in use");
+            // Hash password
+            const hashedPassword = yield (0, passwordUtils_1.hashPassword)(password);
+            const newUser = {
+                name,
+                email,
+                phone,
+                password: hashedPassword,
+            };
+            if (verificationMethod == 'email')
+                newUser.isEmailVerified = true;
+            if (verificationMethod == 'phone')
+                newUser.isPhoneVerified = true;
+            if (verificationMethod == 'google')
+                newUser.isGoogleVerified = true;
+            // Create user
+            const userDoc = yield this.authRepository.create(newUser);
+            // Generate tokens
+            const accessToken = (0, tokenUtils_1.generateAccessToken)({ userId: userDoc._id, role: userDoc.role });
+            const refreshToken = (0, tokenUtils_1.generateRefreshToken)({ userId: userDoc._id, role: userDoc.role });
+            // Convert mongoose doc -> plain object and remove password
+            const user = userDoc.toObject();
+            delete user.password;
+            return { user, accessToken, refreshToken };
         });
     }
 }

@@ -34,7 +34,7 @@ export interface IUser extends Document {
   role?: "user" | "admin";
   profilePicture?: string;
   isDeleted?: boolean;
-  address?: IAddress[];
+  addressList?: IAddress[];
 }
 
 
@@ -74,7 +74,7 @@ const userSchema: Schema<IUser> = new mongoose.Schema({
   role: { type: String, enum: ["user", "admin"], default: "user" },
   profilePicture: { type: String, default: "" },
   isDeleted: { type: Boolean, default: false },
-  address: [addressSchema],
+  addressList: [addressSchema],
 });
 
 

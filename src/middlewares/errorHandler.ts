@@ -18,28 +18,28 @@ const errorHandler = (
   if (err instanceof mongoose.Error.ValidationError) {
     statusCode = 400;
     message = Object.values(err.errors)
-      .map((error) => `${error.path}: Required`)
+      .map((error) => `${error.path}: ${error.message || "Validation error"}`)
       .join(", ");
   }
 
   // Mongoose cast error (e.g., invalid ObjectId)
   else if (err instanceof mongoose.Error.CastError) {
     statusCode = 400;
-    message = `${err.path}: Required`;
+    message = `${err.path}: Invalid value`;
   }
 
   // MongoDB duplicate key error
   else if (isMongoDuplicateError(err)) {
     const field = Object.keys(err.keyValue)[0];
     statusCode = 400;
-    message = `${field}: Already exists`;
+    message = `${field}: ${field} already exists`;
   }
 
   // Zod validation error
   else if (err instanceof ZodError) {
     statusCode = 400;
     message = err.issues
-      .map((issue) => `${issue.path.join(".")}: Required`)
+      .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
       .join(", ");
   }
 
@@ -49,12 +49,12 @@ const errorHandler = (
     message = err.message;
   }
 
-  console.error(`\x1b[31m${message}\x1b[0m`);
-  if (message === "Internal Server Error") console.log(err);
+  console.error("\x1b[31mError:\x1b[0m", message);
+  if (statusCode === 500) console.log(err);
 
   res.status(statusCode).json({
     success: false,
-    message,
+    message, // ✅ all errors joined in one string
   });
 };
 

@@ -8,11 +8,24 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __rest = (this && this.__rest) || function (s, e) {
+    var t = {};
+    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+        t[p] = s[p];
+    if (s != null && typeof Object.getOwnPropertySymbols === "function")
+        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                t[p[i]] = s[p[i]];
+        }
+    return t;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
+const customErrors_1 = require("../../../constants/constants/customErrors");
 const statusCodes_1 = require("../../../constants/constants/statusCodes");
 const otp_1 = require("../../../enums/otp");
 const otpValidator_1 = require("../../../validations/otpValidator");
+const userValidator_1 = require("../../../validations/userValidator");
 class AuthController {
     constructor(authService) {
         this.authService = authService;
@@ -22,9 +35,41 @@ class AuthController {
     register(req, res, next) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                console.log("Register endpoint hit");
+                userValidator_1.userValidationSchema.parse(req.body);
+                const _a = req.body, { verificationMethod } = _a, userData = __rest(_a, ["verificationMethod"]);
+                if (!verificationMethod) {
+                    throw new customErrors_1.BadRequestError("Verification method is required");
+                }
+                const allowedVerificationMethods = ["email", "phone", "google"];
+                if (!allowedVerificationMethods.includes(verificationMethod)) {
+                    throw new customErrors_1.BadRequestError(`Invalid verification method. Allowed values: ${allowedVerificationMethods.join(", ")}`);
+                }
+                const { accessToken, refreshToken, user } = yield this.authService.registerUser(Object.assign({ verificationMethod }, userData));
+                // Constants can live in config
+                const ACCESS_TOKEN_MAXAGE = 15 * 60 * 1000;
+                const REFRESH_TOKEN_MAXAGE = 7 * 24 * 60 * 60 * 1000;
+                const SECURE = process.env.NODE_ENV === "production";
+                res.cookie("ecom-access-token", accessToken, {
+                    httpOnly: true,
+                    secure: SECURE,
+                    sameSite: "strict",
+                    maxAge: ACCESS_TOKEN_MAXAGE,
+                })
+                    .cookie("ecom-refresh-token", refreshToken, {
+                    httpOnly: true,
+                    secure: SECURE,
+                    sameSite: "strict",
+                    maxAge: REFRESH_TOKEN_MAXAGE,
+                })
+                    .status(statusCodes_1.STATUS_CODES.CREATED)
+                    .json({
+                    success: true,
+                    message: "User registration successful",
+                    user, // 🚨 Make sure `user` excludes sensitive info
+                });
             }
             catch (error) {
+                console.error(error);
                 next(error);
             }
         });

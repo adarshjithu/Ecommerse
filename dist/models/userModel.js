@@ -35,6 +35,6 @@ const userSchema = new mongoose_1.default.Schema({
     role: { type: String, enum: ["user", "admin"], default: "user" },
     profilePicture: { type: String, default: "" },
     isDeleted: { type: Boolean, default: false },
-    address: [addressSchema],
+    addressList: [addressSchema],
 });
 exports.default = mongoose_1.default.model("User", userSchema);

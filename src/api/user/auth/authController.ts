@@ -1,7 +1,8 @@
-import { NotFoundError } from "../../../constants/constants/customErrors";
+import { BadRequestError, NotFoundError } from "../../../constants/constants/customErrors";
 import { STATUS_CODES } from "../../../constants/constants/statusCodes";
 import { OTP_Method, OTP_Pupose } from "../../../enums/otp";
 import { otpValidatorSchema, otpVerificationValidationSchema } from "../../../validations/otpValidator";
+import { userValidationSchema } from "../../../validations/userValidator";
 import { AuthService } from "./authService";
 import { Request, Response, NextFunction } from "express";
 
@@ -12,8 +13,49 @@ export class AuthController {
     // @route: POST /api/v1/auth/register
     async register(req: Request, res: Response, next: NextFunction) {
         try {
-            console.log("Register endpoint hit");
+            userValidationSchema.parse(req.body);
+
+            const { verificationMethod, ...userData } = req.body;
+
+            if (!verificationMethod) {
+                throw new BadRequestError("Verification method is required");
+            }
+
+            const allowedVerificationMethods = ["email", "phone", "google"];
+            if (!allowedVerificationMethods.includes(verificationMethod)) {
+                throw new BadRequestError(`Invalid verification method. Allowed values: ${allowedVerificationMethods.join(", ")}`);
+            }
+
+            const { accessToken, refreshToken, user } = await this.authService.registerUser({
+                verificationMethod,
+                ...userData,
+            });
+
+            // Constants can live in config
+            const ACCESS_TOKEN_MAXAGE = 15 * 60 * 1000;
+            const REFRESH_TOKEN_MAXAGE = 7 * 24 * 60 * 60 * 1000;
+            const SECURE = process.env.NODE_ENV === "production";
+
+            res.cookie("ecom-access-token", accessToken, {
+                httpOnly: true,
+                secure: SECURE,
+                sameSite: "strict",
+                maxAge: ACCESS_TOKEN_MAXAGE,
+            })
+                .cookie("ecom-refresh-token", refreshToken, {
+                    httpOnly: true,
+                    secure: SECURE,
+                    sameSite: "strict",
+                    maxAge: REFRESH_TOKEN_MAXAGE,
+                })
+                .status(STATUS_CODES.CREATED)
+                .json({
+                    success: true,
+                    message: "User registration successful",
+                    user, // 🚨 Make sure `user` excludes sensitive info
+                });
         } catch (error) {
+            console.error(error);
             next(error);
         }
     }
@@ -50,15 +92,15 @@ export class AuthController {
             next(error);
         }
     }
+
     // @description: Verify email
     // @route: POST /api/v1/auth/verify-otp
     async verifyOtp(req: Request, res: Response, next: NextFunction) {
         try {
-         
             otpVerificationValidationSchema.parse(req.body);
-             const { target, method, purpose, code ,otp} = req.body;
+            const { target, method, purpose, code, otp } = req.body;
 
-            const result =  await this.authService.verifyOtp({target,method,purpose,otp,code})
+            const result = await this.authService.verifyOtp({ target, method, purpose, otp, code });
             res.status(STATUS_CODES.OK).json({
                 message: "OTP verification  successfull",
                 data: result,
