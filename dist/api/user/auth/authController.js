@@ -68,7 +68,7 @@ class AuthController {
                     .status(statusCodes_1.STATUS_CODES.CREATED)
                     .json({
                     success: true,
-                    message: "User registration successful",
+                    message: "✅ User registration successful",
                     user,
                 });
             }
@@ -109,7 +109,7 @@ class AuthController {
                 const { target, purpose, otp, code } = req.body;
                 const result = yield this.authService.verifyOtp({ target, purpose, otp, code });
                 res.status(statusCodes_1.STATUS_CODES.OK).json({
-                    message: "OTP verification  successfull",
+                    message: "✅ OTP verification  successfull",
                     data: result,
                 });
             }
@@ -140,7 +140,7 @@ class AuthController {
                     .status(statusCodes_1.STATUS_CODES.CREATED)
                     .json({
                     success: true,
-                    message: "User login successful",
+                    message: "✅ User login successful",
                     user,
                 });
             }
@@ -175,7 +175,7 @@ class AuthController {
                     .status(statusCodes_1.STATUS_CODES.CREATED)
                     .json({
                     success: true,
-                    message: "User login successful",
+                    message: "✅ User login successful",
                     user,
                 });
             }
@@ -185,7 +185,7 @@ class AuthController {
         });
     }
     // @description: Login user with phone OTP
-    // @route: POST /api/v1/auth/email-login
+    // @route: POST /api/v1/auth/login-phone
     userLoginWithPhoneOtp(req, res, next) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
@@ -210,8 +210,48 @@ class AuthController {
                     .status(statusCodes_1.STATUS_CODES.CREATED)
                     .json({
                     success: true,
-                    message: "User login successful",
+                    message: "✅ User login successful",
                     user,
+                });
+            }
+            catch (error) {
+                next(error);
+            }
+        });
+    }
+    // @description: Forget password
+    // @route: POST /api/v1/auth/forget-password
+    forgetPassword(req, res, next) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { credential, verificationId, verificationMethod, password } = req.body;
+                if (!credential || !verificationId || !verificationMethod || !password)
+                    throw new customErrors_1.NotFoundError("Invalid credentials");
+                if (!["email", "phone"].includes(verificationMethod)) {
+                    throw new customErrors_1.NotFoundError("Invalid verfication method");
+                }
+                if (!mongoose_1.default.Types.ObjectId.isValid(verificationId))
+                    throw new customErrors_1.BadRequestError("Invalid verificationId");
+                const result = yield this.authService.forgetPassword(req.body);
+                res.status(statusCodes_1.STATUS_CODES.OK).json({
+                    success: true,
+                    message: "✅ You have successfully updated your password. Please log in with your new password.",
+                });
+            }
+            catch (error) {
+                next(error);
+            }
+        });
+    }
+    // @description: Reset password
+    // @route: POST /api/v1/auth/reset-password
+    resetPassword(req, res, next) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { oldPassword, newPassword } = req.body;
+                res.status(statusCodes_1.STATUS_CODES.OK).json({
+                    success: true,
+                    message: "✅ You have successfully updated your password. Please log in with your new password.",
                 });
             }
             catch (error) {

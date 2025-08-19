@@ -14,7 +14,6 @@ export class AuthController {
     // @route: POST /api/v1/auth/register
     async register(req: Request, res: Response, next: NextFunction) {
         try {
-            
             const { verificationMethod, verificationId, ...userData } = req.body;
             userValidationSchema.parse(userData);
 
@@ -27,8 +26,8 @@ export class AuthController {
                 throw new BadRequestError(`Invalid verification method. Allowed values: ${allowedVerificationMethods.join(", ")}`);
             }
 
-            if(!verificationId||!mongoose.Types.ObjectId.isValid(verificationId)){
-                throw new BadRequestError("Invalid verification Id")
+            if (!verificationId || !mongoose.Types.ObjectId.isValid(verificationId)) {
+                throw new BadRequestError("Invalid verification Id");
             }
 
             const { accessToken, refreshToken, user } = await this.authService.registerUser({
@@ -52,7 +51,7 @@ export class AuthController {
                 .status(STATUS_CODES.CREATED)
                 .json({
                     success: true,
-                    message: "User registration successful",
+                    message: "✅ User registration successful",
                     user,
                 });
         } catch (error) {
@@ -91,7 +90,7 @@ export class AuthController {
 
             const result = await this.authService.verifyOtp({ target, purpose, otp, code });
             res.status(STATUS_CODES.OK).json({
-                message: "OTP verification  successfull",
+                message: "✅ OTP verification  successfull",
                 data: result,
             });
         } catch (error) {
@@ -121,7 +120,7 @@ export class AuthController {
                 .status(STATUS_CODES.CREATED)
                 .json({
                     success: true,
-                    message: "User login successful",
+                    message: "✅ User login successful",
                     user,
                 });
         } catch (error) {
@@ -133,13 +132,12 @@ export class AuthController {
     // @route: POST /api/v1/auth/email-login
     async userLoginWithEmailOtp(req: Request, res: Response, next: NextFunction) {
         try {
+            const { email, verificationId } = req.body;
+            if (!email || !verificationId) throw new NotFoundError("Invalid credentials");
 
-            const {email,verificationId}= req.body;
-            if(!email||!verificationId) throw new NotFoundError("Invalid credentials");
+            if (!mongoose.Types.ObjectId.isValid(verificationId)) throw new BadRequestError("Invalid verificationId");
 
-            if(!mongoose.Types.ObjectId.isValid(verificationId)) throw new BadRequestError("Invalid verificationId")
-        
-            const { user, accessToken, refreshToken } = await this.authService.loginWithEmailOtp({email,verificationId})
+            const { user, accessToken, refreshToken } = await this.authService.loginWithEmailOtp({ email, verificationId });
 
             res.cookie("ecom-access-token", accessToken, {
                 httpOnly: true,
@@ -156,7 +154,7 @@ export class AuthController {
                 .status(STATUS_CODES.CREATED)
                 .json({
                     success: true,
-                    message: "User login successful",
+                    message: "✅ User login successful",
                     user,
                 });
         } catch (error) {
@@ -164,16 +162,15 @@ export class AuthController {
         }
     }
     // @description: Login user with phone OTP
-    // @route: POST /api/v1/auth/email-login
+    // @route: POST /api/v1/auth/login-phone
     async userLoginWithPhoneOtp(req: Request, res: Response, next: NextFunction) {
         try {
+            const { phone, verificationId, code } = req.body;
+            if (!phone || !verificationId || code) throw new NotFoundError("Invalid credentials");
 
-            const {phone,verificationId,code}= req.body;
-            if(!phone||!verificationId||code) throw new NotFoundError("Invalid credentials");
+            if (!mongoose.Types.ObjectId.isValid(verificationId)) throw new BadRequestError("Invalid verificationId");
 
-            if(!mongoose.Types.ObjectId.isValid(verificationId)) throw new BadRequestError("Invalid verificationId")
-        
-            const { user, accessToken, refreshToken } = await this.authService.loginWithMobileOtp({phone,code,verificationId})
+            const { user, accessToken, refreshToken } = await this.authService.loginWithMobileOtp({ phone, code, verificationId });
 
             res.cookie("ecom-access-token", accessToken, {
                 httpOnly: true,
@@ -190,9 +187,46 @@ export class AuthController {
                 .status(STATUS_CODES.CREATED)
                 .json({
                     success: true,
-                    message: "User login successful",
+                    message: "✅ User login successful",
                     user,
                 });
+        } catch (error) {
+            next(error);
+        }
+    }
+    // @description: Forget password
+    // @route: POST /api/v1/auth/forget-password
+    async forgetPassword(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { credential, verificationId, verificationMethod, password } = req.body;
+            
+            if (!credential || !verificationId || !verificationMethod || !password) throw new NotFoundError("Invalid credentials");
+            if (!["email", "phone"].includes(verificationMethod)) {
+                throw new NotFoundError("Invalid verfication method");
+            }
+            if (!mongoose.Types.ObjectId.isValid(verificationId)) throw new BadRequestError("Invalid verificationId");
+
+            const result = await this.authService.forgetPassword(req.body);
+            res.status(STATUS_CODES.OK).json({
+                success: true,
+                message: "✅ You have successfully updated your password. Please log in with your new password.",
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+    // @description: Reset password
+    // @route: POST /api/v1/auth/reset-password
+    async resetPassword(req: Request, res: Response, next: NextFunction) {
+        try {
+            const {oldPassword,newPassword } = req.body;
+            
+            if(!oldPassword||!newPassword) throw new NotFoundError("Old password and new password is required");
+            await this.authService.resetPassword(req.user?._id,oldPassword,newPassword);
+            res.status(STATUS_CODES.OK).json({
+                success: true,
+                message: "✅ You have successfully updated your password",
+            });
         } catch (error) {
             next(error);
         }

@@ -12,8 +12,10 @@ import otpModel, { IOtp } from "../../../models/otpModel";
 import { IUser } from "../../../models/userModel";
 import { OtpRepository } from "../../../repository/otpRepository";
 import { sendEmail } from "../../../utils/mail/sendMail";
+import { validateEmail } from "../../../utils/mail/validateEmail";
 import { generateOtp } from "../../../utils/otp/generateOtp";
 import { comparePassword, hashPassword } from "../../../utils/password/passwordUtils";
+import { validateMobilenumber } from "../../../utils/phone/phoneValidation";
 import { sendOtpToPhone } from "../../../utils/phone/sendOtpToPhone";
 import { generateAccessToken, generateRefreshToken } from "../../../utils/token/tokenUtils";
 import { AuthRepository } from "./authRepository";
@@ -317,6 +319,10 @@ export class AuthService {
             throw new NotFoundError("Invalid or expired verification request. Please request a new OTP.");
         }
 
+        if (!otpData.isUsed) {
+            throw new BadRequestError("Verification ID has not been verified or is invalid");
+        }
+
         const user = await this.authRepository.findOne({ email: email });
         if (!user) throw new NotFoundError("No account found with this email address");
 
@@ -343,8 +349,12 @@ export class AuthService {
             throw new NotFoundError("Invalid verificationId");
         }
 
+        if (!otpData.isUsed) {
+            throw new BadRequestError("Verification ID has not been verified or is invalid");
+        }
+
         const user = await this.authRepository.findOne({ phone: { number: phone, code: code } });
-        
+
         if (!user) throw new NotFoundError("No account found with this phonenumber");
 
         if (!user?.isEmailVerified) throw new UnAuthorizedError("Your email is not verified. Please verify your email to continue.");
@@ -357,5 +367,70 @@ export class AuthService {
         const accessToken = generateAccessToken({ userId: user?._id, role: user?.role });
         const refreshToken = generateRefreshToken({ userId: user?._id, role: user?.role });
         return { accessToken, refreshToken, user: newUser };
+    }
+
+    // Change the userpassword
+    async forgetPassword({ credential, verificationId, verificationMethod, password }: Record<string, any>): Promise<any> {
+        const otpQuery: any = { _id: verificationId, target: credential };
+
+        if (verificationMethod == "phone") {
+            const parts = credential.trim().split(" ");
+            const [code, number] = parts;
+
+            otpQuery.target = number;
+            otpQuery.code = code;
+        }
+
+        const otpData = await this.otpRepository.findOne(otpQuery);
+        if (!otpData) {
+            throw new NotFoundError("Verification record not found");
+        }
+
+        if (!otpData.isUsed) {
+            throw new BadRequestError("Verification ID has not been verified or is invalid");
+        }
+
+        let userQuery: any = {};
+        if (verificationMethod == "email") {
+            if (!validateEmail(credential)) throw new BadRequestError("Invalid Email address");
+            userQuery.email = credential;
+        }
+
+        if (verificationMethod == "phone") {
+            const parts = credential.trim().split(" ");
+            const [code, number] = parts;
+            if (!validateMobilenumber(number)) throw new BadRequestError("Invalid phonenumber");
+            userQuery.phone = { code, number };
+        }
+
+        const user = await this.authRepository.findOne(userQuery);
+        if (!user) throw new NotFoundError("User not found");
+
+        const isSamePassword = await comparePassword(password, user?.password);
+        if (isSamePassword) throw new ConflictError("New password cannot be the same as the current password.");
+        const hashedPassword = await hashPassword(password);
+        user.password = hashedPassword;
+        await user.save();
+        return;
+    }
+    async resetPassword(userId: string, oldPassword: string, newPassword: string): Promise<any> {
+        const user = await this.authRepository.findById(userId);
+        if (!user) throw new NotFoundError("User not found");
+
+        if (user.isBlocked) throw new ForbiddenError("User has been blocked");
+        if (user.isDeleted) throw new ResourceGoneError("This account has been deleted");
+
+        const passwordValid = await comparePassword(oldPassword, user.password);
+        if (!passwordValid) throw new UnAuthorizedError("The old password you entered is incorrect");
+
+        const isSamePassword = await comparePassword(newPassword, user.password);
+        if (isSamePassword) throw new ConflictError("New password cannot be the same as the old password");
+
+        const hashedPassword = await hashPassword(newPassword);
+        user.password = hashedPassword;
+
+        await user.save();
+
+        return { message: "✅ Password updated successfully" };
     }
 }

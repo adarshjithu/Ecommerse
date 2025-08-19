@@ -13,8 +13,10 @@ exports.AuthService = void 0;
 const customErrors_1 = require("../../../constants/constants/customErrors");
 const otp_1 = require("../../../enums/otp");
 const sendMail_1 = require("../../../utils/mail/sendMail");
+const validateEmail_1 = require("../../../utils/mail/validateEmail");
 const generateOtp_1 = require("../../../utils/otp/generateOtp");
 const passwordUtils_1 = require("../../../utils/password/passwordUtils");
+const phoneValidation_1 = require("../../../utils/phone/phoneValidation");
 const sendOtpToPhone_1 = require("../../../utils/phone/sendOtpToPhone");
 const tokenUtils_1 = require("../../../utils/token/tokenUtils");
 class AuthService {
@@ -275,6 +277,9 @@ class AuthService {
             if (!otpData) {
                 throw new customErrors_1.NotFoundError("Invalid or expired verification request. Please request a new OTP.");
             }
+            if (!otpData.isUsed) {
+                throw new customErrors_1.BadRequestError("Verification ID has not been verified or is invalid");
+            }
             const user = yield this.authRepository.findOne({ email: email });
             if (!user)
                 throw new customErrors_1.NotFoundError("No account found with this email address");
@@ -300,6 +305,9 @@ class AuthService {
             if (!otpData) {
                 throw new customErrors_1.NotFoundError("Invalid verificationId");
             }
+            if (!otpData.isUsed) {
+                throw new customErrors_1.BadRequestError("Verification ID has not been verified or is invalid");
+            }
             const user = yield this.authRepository.findOne({ phone: { number: phone, code: code } });
             if (!user)
                 throw new customErrors_1.NotFoundError("No account found with this phonenumber");
@@ -313,6 +321,48 @@ class AuthService {
             const accessToken = (0, tokenUtils_1.generateAccessToken)({ userId: user === null || user === void 0 ? void 0 : user._id, role: user === null || user === void 0 ? void 0 : user.role });
             const refreshToken = (0, tokenUtils_1.generateRefreshToken)({ userId: user === null || user === void 0 ? void 0 : user._id, role: user === null || user === void 0 ? void 0 : user.role });
             return { accessToken, refreshToken, user: newUser };
+        });
+    }
+    // Change the userpassword
+    forgetPassword(_a) {
+        return __awaiter(this, arguments, void 0, function* ({ credential, verificationId, verificationMethod, password }) {
+            const otpQuery = { _id: verificationId, target: credential };
+            if (verificationMethod == "phone") {
+                const parts = credential.trim().split(" ");
+                const [code, number] = parts;
+                otpQuery.target = number;
+                otpQuery.code = code;
+            }
+            const otpData = yield this.otpRepository.findOne(otpQuery);
+            if (!otpData) {
+                throw new customErrors_1.NotFoundError("Verification record not found");
+            }
+            if (!otpData.isUsed) {
+                throw new customErrors_1.BadRequestError("Verification ID has not been verified or is invalid");
+            }
+            let userQuery = {};
+            if (verificationMethod == "email") {
+                if (!(0, validateEmail_1.validateEmail)(credential))
+                    throw new customErrors_1.BadRequestError("Invalid Email address");
+                userQuery.email = credential;
+            }
+            if (verificationMethod == "phone") {
+                const parts = credential.trim().split(" ");
+                const [code, number] = parts;
+                if (!(0, phoneValidation_1.validateMobilenumber)(number))
+                    throw new customErrors_1.BadRequestError("Invalid phonenumber");
+                userQuery.phone = { code, number };
+            }
+            const user = yield this.authRepository.findOne(userQuery);
+            if (!user)
+                throw new customErrors_1.NotFoundError("User not found");
+            const isSamePassword = yield (0, passwordUtils_1.comparePassword)(password, user === null || user === void 0 ? void 0 : user.password);
+            if (isSamePassword)
+                throw new customErrors_1.ConflictError("New password cannot be the same as the current password.");
+            const hashedPassword = yield (0, passwordUtils_1.hashPassword)(password);
+            user.password = hashedPassword;
+            yield user.save();
+            return;
         });
     }
 }
