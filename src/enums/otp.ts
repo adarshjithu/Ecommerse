@@ -1,13 +1,8 @@
-
-export enum OTP_Pupose{
-LOGIN_EMAIL = "login-email",
-LOGIN_PHONE = "login-phone",
-RESET_PASSWORD = "reset-password",
-VERIFY_EMAIL = "verify-email",
-EVERIRY_PHONE = "verify-phone"
-}
-
-export enum OTP_Method{
-EMAIL = "email",
-PHONE = "phone"
+export enum OTP_Purpose {
+    LOGIN_EMAIL = "login-email",
+    LOGIN_PHONE = "login-phone",
+    FORGET_PASSWORD_EMAIL = "forget-password-email",
+    FORGET_PASSWORD_PHONE = "forget-password-phone",
+    REGISTER_EMAIL = "register-email",
+    REGISTER_PHONE = "register-phone",
 }

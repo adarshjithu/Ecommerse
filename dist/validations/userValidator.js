@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.userValidationSchema = void 0;
+exports.loginSchema = exports.userValidationSchema = void 0;
 const zod_1 = require("zod");
 // Address schema (assuming addressSchema has these fields, adjust if needed)
 const addressSchema = zod_1.z.object({
@@ -30,4 +30,18 @@ exports.userValidationSchema = zod_1.z.object({
     profilePicture: zod_1.z.string().optional().default(""),
     isDeleted: zod_1.z.boolean().optional().default(false),
     addressList: zod_1.z.array(addressSchema).optional(),
+});
+exports.loginSchema = zod_1.z.object({
+    credential: zod_1.z.string().min(1, "Email or phone is required"),
+    password: zod_1.z.string().min(1, "Password is required"),
+}).superRefine((data, ctx) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRegex = /^[0-9]{5,15}$/; // simple phone validation (5-15 digits)
+    if (!emailRegex.test(data.credential) && !phoneRegex.test(data.credential)) {
+        ctx.addIssue({
+            code: zod_1.z.ZodIssueCode.custom,
+            message: "Credential must be a valid email or phone number",
+            path: ["credential"],
+        });
+    }
 });

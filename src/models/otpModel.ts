@@ -1,12 +1,12 @@
 import mongoose, { Document } from "mongoose";
-import { OTP_Method, OTP_Pupose } from "../enums/otp";
+import {  OTP_Purpose } from "../enums/otp";
 
 
 export interface IOtp extends Document {
     target: string;
     otp: string;
     code?: string;
-    method: "email" | "phone";
+  
     purpose: "login-email" | "login-phone" | "reset-password" | "verify-email" | "verify-phone";
     expiresAt: Date;
     isUsed: boolean;
@@ -20,10 +20,10 @@ const otpSchema = new mongoose.Schema(
         target: { type: String, required: true },
         otp: { type: String, required: true },
         code: { type: String },
-        method: { type: String, enum: Object.values(OTP_Method), required: true },
+      
         purpose: {
             type: String,
-            enum: Object.values(OTP_Pupose),
+            enum: Object.values(OTP_Purpose),
             required: true,
             default: "login-email",
         },

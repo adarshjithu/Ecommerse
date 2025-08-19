@@ -12,3 +12,8 @@ export const NODEMAILER_SERVICE = process.env.NODEMAILER_SERVICE || 'gmail';
 export const NODEMAILER_HOST = process.env.NODEMAILER_HOST || 'smtp.gmail.com';
 
 export const MONGODB_URI = process.env.MONGODB_URI
+
+export const ACCESS_TOKEN_MAXAGE = process.env.ACCESS_TOKEN_MAXAGE
+export const REFRESH_TOKEN_MAXAGE = process.env.REFRESH_TOKEN_MAXAGE
+
+export const SECURE = process.env.NODE_ENV === "production"

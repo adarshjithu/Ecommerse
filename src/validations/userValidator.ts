@@ -32,5 +32,26 @@ export const userValidationSchema = z.object({
   addressList: z.array(addressSchema).optional(),
 });
 
+
+
+
+
+export const loginSchema = z.object({
+  credential: z.string().min(1, "Email or phone is required"),
+  password: z.string().min(1, "Password is required"),
+}).superRefine((data, ctx) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const phoneRegex = /^[0-9]{5,15}$/; // simple phone validation (5-15 digits)
+
+  if (!emailRegex.test(data.credential) && !phoneRegex.test(data.credential)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Credential must be a valid email or phone number",
+      path: ["credential"],
+    });
+  }
+});
+
+
 // Type inference (so you get TS types from Zod schema)
 export type UserInput = z.infer<typeof userValidationSchema>;

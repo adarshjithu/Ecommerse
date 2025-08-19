@@ -11,6 +11,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const customErrors_1 = require("../../../constants/constants/customErrors");
+const otp_1 = require("../../../enums/otp");
 const sendMail_1 = require("../../../utils/mail/sendMail");
 const generateOtp_1 = require("../../../utils/otp/generateOtp");
 const passwordUtils_1 = require("../../../utils/password/passwordUtils");
@@ -21,94 +22,161 @@ class AuthService {
         this.authRepository = authRepository;
         this.otpRepository = otpRepository;
     }
-    // Send otp for all the usecases
     sendOTP(_a) {
-        return __awaiter(this, arguments, void 0, function* ({ target, method, purpose, code }) {
-            if (!target || !method || !purpose) {
-                throw new Error("Missing required fields");
-            }
-            // Build user query
-            const userFindQuery = method === "email" ? { email: target } : { phone: { number: target, code } };
-            // Check if user already exists
-            const user = yield this.authRepository.findByQuery(userFindQuery);
-            if (user) {
-                if (method === "email") {
-                    throw new customErrors_1.ConflictError(`User already exists with this email: ${target}`);
+        return __awaiter(this, arguments, void 0, function* ({ target, purpose, code }) {
+            if (!target || !purpose)
+                throw new customErrors_1.BadRequestError("Missing required fields");
+            // 1. Determine communication method
+            const { email, phone } = this.getPurposeFlags(purpose);
+            // 2. Validate input
+            this.validateInput({ target, code, email, phone });
+            // 3. User existence & conflict checks
+            yield this.validateUser({ target, purpose, code, email, phone });
+            // 4. Prevent duplicate OTP
+            yield this.ensureNoActiveOtp({ purpose, target, code, phone });
+            // 5. Generate & send OTP
+            return yield this.generateAndSendOtp({ target, purpose, code, email, phone });
+        });
+    }
+    // ---------------- Private helpers ----------------
+    getPurposeFlags(purpose) {
+        const email = [otp_1.OTP_Purpose.LOGIN_EMAIL, otp_1.OTP_Purpose.REGISTER_EMAIL, otp_1.OTP_Purpose.FORGET_PASSWORD_EMAIL].includes(purpose);
+        const phone = [otp_1.OTP_Purpose.LOGIN_PHONE, otp_1.OTP_Purpose.REGISTER_PHONE, otp_1.OTP_Purpose.FORGET_PASSWORD_PHONE].includes(purpose);
+        if (!email && !phone)
+            throw new customErrors_1.NotFoundError("Invalid purpose");
+        return { email, phone };
+    }
+    validateInput({ target, code, email, phone }) {
+        if (phone && !code)
+            throw new customErrors_1.BadRequestError("Country code is required");
+        if (email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(target))
+                throw new customErrors_1.BadRequestError("Invalid email address");
+        }
+        if (phone) {
+            const phoneRegex = /^\d{10,15}$/;
+            if (!phoneRegex.test(target))
+                throw new customErrors_1.BadRequestError("Invalid phone number");
+        }
+    }
+    validateUser(_a) {
+        return __awaiter(this, arguments, void 0, function* ({ target, purpose, code, email, phone }) {
+            let user = null;
+            if (email) {
+                user = yield this.authRepository.findOne({ email: target });
+                if ([otp_1.OTP_Purpose.LOGIN_EMAIL, otp_1.OTP_Purpose.FORGET_PASSWORD_EMAIL].includes(purpose) && !user) {
+                    throw new customErrors_1.NotFoundError("Invalid credential. User not found");
                 }
-                else {
-                    throw new customErrors_1.ConflictError(`User already exists with this phone: ${code}-${target}`);
+                if (purpose === otp_1.OTP_Purpose.REGISTER_EMAIL && user) {
+                    throw new customErrors_1.ConflictError("Email already in use");
                 }
             }
-            // Prevent resending OTPs if not expired
-            const otpQuery = { purpose, method, target };
-            if (method === "phone")
+            if (phone) {
+                user = yield this.authRepository.findOne({ phone: { code, number: target } });
+                if ([otp_1.OTP_Purpose.LOGIN_PHONE, otp_1.OTP_Purpose.FORGET_PASSWORD_PHONE].includes(purpose) && !user) {
+                    throw new customErrors_1.NotFoundError("Invalid credential. User not found");
+                }
+                if (purpose === otp_1.OTP_Purpose.REGISTER_PHONE && user) {
+                    throw new customErrors_1.ConflictError("Phone number already in use");
+                }
+            }
+        });
+    }
+    ensureNoActiveOtp(_a) {
+        return __awaiter(this, arguments, void 0, function* ({ purpose, target, code, phone }) {
+            const otpQuery = { purpose, target };
+            if (phone)
                 otpQuery.code = code;
             const existingOtpData = yield this.otpRepository.findByQuery(otpQuery);
             if (existingOtpData && existingOtpData.expiresAt > new Date()) {
                 throw new customErrors_1.ConflictError("OTP already sent. Please try again after it expires.");
             }
-            // Generate new OTP
+        });
+    }
+    generateAndSendOtp(_a) {
+        return __awaiter(this, arguments, void 0, function* ({ target, purpose, code, email, phone }) {
             const otp = (0, generateOtp_1.generateOtp)(6);
             const newOtp = {
                 target,
                 otp,
-                method,
                 purpose,
                 code,
-                expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+                expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 min
                 isUsed: false,
                 attempts: 0,
             };
-            if (method === "email") {
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(target)) {
-                    throw new customErrors_1.BadRequestError("Invalid email address");
-                }
+            if (email) {
                 const isEmailSent = yield (0, sendMail_1.sendEmail)(target, `Your OTP is ${otp}`, `<p>Your OTP is <strong>${otp}</strong></p>`);
-                if (!isEmailSent) {
+                if (!isEmailSent)
                     throw new Error("Failed to send OTP via email");
-                }
             }
-            else {
-                const phoneRegex = /^\d{10,15}$/;
-                if (!phoneRegex.test(target)) {
-                    throw new customErrors_1.BadRequestError("Invalid phone number");
-                }
+            if (phone) {
                 const isOtpSent = (0, sendOtpToPhone_1.sendOtpToPhone)(target, otp);
-                if (!isOtpSent) {
+                if (!isOtpSent)
                     throw new customErrors_1.BadRequestError("Failed to send OTP via phone");
-                }
             }
             return yield this.otpRepository.createOtp(newOtp);
         });
     }
     // Verify OTP
     verifyOtp(_a) {
-        return __awaiter(this, arguments, void 0, function* ({ target, method, purpose, otp, code }) {
-            const otpQuery = { purpose, method, target };
-            if (method === "phone")
-                otpQuery.code = code;
+        return __awaiter(this, arguments, void 0, function* ({ target, purpose, otp, code }) {
+            //  Validate purpose
+            if (!Object.values(otp_1.OTP_Purpose).includes(purpose)) {
+                throw new customErrors_1.BadRequestError("Invalid OTP purpose");
+            }
+            // Build query
+            const otpQuery = { purpose, target };
+            const { email, phone } = this.getPurposeFlags(purpose);
+            if (phone) {
+                otpQuery.code = code; // extra check for phone
+            }
+            // Fetch OTP object
             const otpObj = yield this.otpRepository.findByQuery(otpQuery);
-            if (!otpObj)
+            if (!otpObj) {
                 throw new customErrors_1.NotFoundError("No OTP request found. Please request a new OTP.");
-            if (otpObj === null || otpObj === void 0 ? void 0 : otpObj.isUsed)
-                throw new customErrors_1.BadRequestError("This OTP has already been used. Please request a new OTP.");
-            otpObj.attempts += 1;
+            }
+            // Check if already used
+            if (otpObj.isUsed) {
+                throw new customErrors_1.BadRequestError("This OTP has already been used. Please request a new one.");
+            }
+            // Check expiration (if expiry field exists)
+            if (otpObj.expiresAt && otpObj.expiresAt < new Date()) {
+                yield this.otpRepository.delete(otpObj._id);
+                throw new customErrors_1.BadRequestError("This OTP has expired. Please request a new one.");
+            }
+            // Validate OTP
             if (otpObj.otp !== otp) {
+                otpObj.attempts += 1;
+                yield otpObj.save();
                 if (otpObj.attempts >= 5) {
                     yield this.otpRepository.delete(otpObj._id);
                     throw new customErrors_1.BadRequestError("You have reached the maximum number of attempts. Please request a new OTP.");
                 }
                 throw new customErrors_1.BadRequestError(`Incorrect OTP. You have ${5 - otpObj.attempts} attempt(s) left.`);
             }
+            // Mark OTP as used
             otpObj.isUsed = true;
             yield otpObj.save();
-            return otpObj;
+            return { verificationId: otpObj._id.toString() };
         });
     }
     // User registration
     registerUser(_a) {
-        return __awaiter(this, arguments, void 0, function* ({ email, phone, password, name, verificationMethod }) {
+        return __awaiter(this, arguments, void 0, function* ({ email, phone, password, name, verificationMethod, verificationId, }) {
+            let otpQuery = { _id: verificationId };
+            if (verificationMethod == "email")
+                otpQuery.target = email;
+            if (verificationId == "phone") {
+                otpQuery.target == (phone === null || phone === void 0 ? void 0 : phone.number);
+                otpQuery.code = phone.code;
+            }
+            const otpData = yield this.otpRepository.findOne(otpQuery);
+            if (!otpData)
+                throw new customErrors_1.NotFoundError("Authentication failed. Otp session expired");
+            if (!otpData.isUsed)
+                throw new customErrors_1.BadRequestError("OTP is not verified");
             // Check if email already exists
             const existingEmail = yield this.authRepository.findOne({ email });
             if (existingEmail)
@@ -125,11 +193,11 @@ class AuthService {
                 phone,
                 password: hashedPassword,
             };
-            if (verificationMethod == 'email')
+            if (verificationMethod == "email")
                 newUser.isEmailVerified = true;
-            if (verificationMethod == 'phone')
+            if (verificationMethod == "phone")
                 newUser.isPhoneVerified = true;
-            if (verificationMethod == 'google')
+            if (verificationMethod == "google")
                 newUser.isGoogleVerified = true;
             // Create user
             const userDoc = yield this.authRepository.create(newUser);
@@ -140,6 +208,61 @@ class AuthService {
             const user = userDoc.toObject();
             delete user.password;
             return { user, accessToken, refreshToken };
+        });
+    }
+    // User login
+    userlogin(_a) {
+        return __awaiter(this, arguments, void 0, function* ({ credential, password }) {
+            if (!credential || !password) {
+                throw new customErrors_1.NotFoundError("Credential and password are required");
+            }
+            let user;
+            const isEmail = credential.includes("@");
+            if (isEmail) {
+                // Case-insensitive email match
+                user = yield this.authRepository.findOne({
+                    email: { $regex: new RegExp(`^${credential}$`, "i") },
+                });
+            }
+            else {
+                // Split phone using " " only
+                const parts = credential.trim().split(" ");
+                if (parts.length !== 2) {
+                    throw new customErrors_1.BadRequestError("Invalid phone format. Use '+<code> <number>' (e.g. +91 9876543210)");
+                }
+                const [code, number] = parts;
+                // Basic validation
+                if (!/^\+\d{1,4}$/.test(code) || !/^\d{6,15}$/.test(number)) {
+                    throw new customErrors_1.BadRequestError("Invalid phone code or number format");
+                }
+                user = yield this.authRepository.findOne({
+                    "phone.code": code,
+                    "phone.number": number,
+                });
+            }
+            if (!user) {
+                throw new customErrors_1.NotFoundError("User not found");
+            }
+            if (user.isBlocked) {
+                throw new customErrors_1.ForbiddenError("User is blocked");
+            }
+            if (user.isDeleted) {
+                throw new customErrors_1.ResourceGoneError("Accont has been deleted");
+            }
+            if (!isEmail && !user.isPhoneVerified) {
+                throw new customErrors_1.ForbiddenError("Phone number is not verified");
+            }
+            if (isEmail && !user.isEmailVerified) {
+                throw new customErrors_1.ForbiddenError("Email is not verified");
+            }
+            const isPasswordMatch = yield (0, passwordUtils_1.comparePassword)(password, user === null || user === void 0 ? void 0 : user.password);
+            if (!isPasswordMatch)
+                throw new customErrors_1.UnAuthorizedError("Incorrect password");
+            const newUser = user.toObject();
+            delete newUser.password;
+            const accessToken = (0, tokenUtils_1.generateAccessToken)({ userId: user === null || user === void 0 ? void 0 : user._id, role: user === null || user === void 0 ? void 0 : user.role });
+            const refreshToken = (0, tokenUtils_1.generateRefreshToken)({ userId: user === null || user === void 0 ? void 0 : user._id, role: user === null || user === void 0 ? void 0 : user.role });
+            return { accessToken, refreshToken, user: newUser };
         });
     }
 }

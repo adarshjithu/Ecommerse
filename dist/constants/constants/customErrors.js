@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.EmptyRequestBodyError = exports.UnsupportedMediaTypeError = exports.PayloadTooLargeError = exports.GatewayTimeoutError = exports.NotImplementedError = exports.ConflictError = exports.ServiceUnavailableError = exports.InternalServerError = exports.MethodNotAllowedError = exports.NotFoundError = exports.ForbiddenError = exports.UnAuthorizedError = exports.BadRequestError = void 0;
+exports.ResourceGoneError = exports.EmptyRequestBodyError = exports.UnsupportedMediaTypeError = exports.PayloadTooLargeError = exports.GatewayTimeoutError = exports.NotImplementedError = exports.ConflictError = exports.ServiceUnavailableError = exports.InternalServerError = exports.MethodNotAllowedError = exports.NotFoundError = exports.ForbiddenError = exports.UnAuthorizedError = exports.BadRequestError = void 0;
 // Bad Request Error (400)
 class BadRequestError extends Error {
     constructor(message) {
@@ -119,3 +119,11 @@ class EmptyRequestBodyError extends Error {
     }
 }
 exports.EmptyRequestBodyError = EmptyRequestBodyError;
+class ResourceGoneError extends Error {
+    constructor(message = "The requested resource is no longer available") {
+        super(message);
+        this.status = 410; // Gone
+        this.name = "ResourceGoneError";
+    }
+}
+exports.ResourceGoneError = ResourceGoneError;

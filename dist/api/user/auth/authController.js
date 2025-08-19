@@ -19,11 +19,15 @@ var __rest = (this && this.__rest) || function (s, e) {
         }
     return t;
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
+const mongoose_1 = __importDefault(require("mongoose"));
+const config_1 = require("../../../config");
 const customErrors_1 = require("../../../constants/constants/customErrors");
 const statusCodes_1 = require("../../../constants/constants/statusCodes");
-const otp_1 = require("../../../enums/otp");
 const otpValidator_1 = require("../../../validations/otpValidator");
 const userValidator_1 = require("../../../validations/userValidator");
 class AuthController {
@@ -35,8 +39,8 @@ class AuthController {
     register(req, res, next) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                userValidator_1.userValidationSchema.parse(req.body);
-                const _a = req.body, { verificationMethod } = _a, userData = __rest(_a, ["verificationMethod"]);
+                const _a = req.body, { verificationMethod, verificationId } = _a, userData = __rest(_a, ["verificationMethod", "verificationId"]);
+                userValidator_1.userValidationSchema.parse(userData);
                 if (!verificationMethod) {
                     throw new customErrors_1.BadRequestError("Verification method is required");
                 }
@@ -44,28 +48,28 @@ class AuthController {
                 if (!allowedVerificationMethods.includes(verificationMethod)) {
                     throw new customErrors_1.BadRequestError(`Invalid verification method. Allowed values: ${allowedVerificationMethods.join(", ")}`);
                 }
-                const { accessToken, refreshToken, user } = yield this.authService.registerUser(Object.assign({ verificationMethod }, userData));
-                // Constants can live in config
-                const ACCESS_TOKEN_MAXAGE = 15 * 60 * 1000;
-                const REFRESH_TOKEN_MAXAGE = 7 * 24 * 60 * 60 * 1000;
-                const SECURE = process.env.NODE_ENV === "production";
+                if (!verificationId || !mongoose_1.default.Types.ObjectId.isValid(verificationId)) {
+                    throw new customErrors_1.BadRequestError("Invalid verification Id");
+                }
+                const { accessToken, refreshToken, user } = yield this.authService.registerUser(Object.assign({ verificationMethod,
+                    verificationId }, userData));
                 res.cookie("ecom-access-token", accessToken, {
                     httpOnly: true,
-                    secure: SECURE,
+                    secure: config_1.SECURE,
                     sameSite: "strict",
-                    maxAge: ACCESS_TOKEN_MAXAGE,
+                    maxAge: Number(config_1.ACCESS_TOKEN_MAXAGE),
                 })
                     .cookie("ecom-refresh-token", refreshToken, {
                     httpOnly: true,
-                    secure: SECURE,
+                    secure: config_1.SECURE,
                     sameSite: "strict",
-                    maxAge: REFRESH_TOKEN_MAXAGE,
+                    maxAge: Number(config_1.REFRESH_TOKEN_MAXAGE),
                 })
                     .status(statusCodes_1.STATUS_CODES.CREATED)
                     .json({
                     success: true,
                     message: "User registration successful",
-                    user, // 🚨 Make sure `user` excludes sensitive info
+                    user,
                 });
             }
             catch (error) {
@@ -80,25 +84,15 @@ class AuthController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 otpValidator_1.otpValidatorSchema.parse(req.body);
-                const { target, method, purpose, code } = req.body;
-                if (method === otp_1.OTP_Method.EMAIL && !target.includes("@")) {
-                    return res.status(400).json({ message: "Invalid email address" });
-                }
-                if (method === otp_1.OTP_Method.PHONE && !/^\d{10}$/.test(target)) {
-                    return res.status(400).json({ message: "Invalid phone number" });
-                }
-                if (method === otp_1.OTP_Method.PHONE && !code) {
-                    return res.status(400).json({ message: "Code is required for phone verification" });
-                }
+                const { target, purpose, code } = req.body;
                 const result = yield this.authService.sendOTP({
                     target,
-                    method,
                     purpose,
                     code,
                 });
                 res.status(statusCodes_1.STATUS_CODES.CREATED).json({
-                    message: "OTP sent successfully",
-                    data: result,
+                    success: true,
+                    message: `OTP successfully sent`,
                 });
             }
             catch (error) {
@@ -112,11 +106,42 @@ class AuthController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 otpValidator_1.otpVerificationValidationSchema.parse(req.body);
-                const { target, method, purpose, code, otp } = req.body;
-                const result = yield this.authService.verifyOtp({ target, method, purpose, otp, code });
+                const { target, purpose, otp, code } = req.body;
+                const result = yield this.authService.verifyOtp({ target, purpose, otp, code });
                 res.status(statusCodes_1.STATUS_CODES.OK).json({
                     message: "OTP verification  successfull",
                     data: result,
+                });
+            }
+            catch (error) {
+                next(error);
+            }
+        });
+    }
+    // @description: Login user
+    // @route: POST /api/v1/auth/login
+    userLogin(req, res, next) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                userValidator_1.loginSchema.parse(req.body);
+                const { user, accessToken, refreshToken } = yield this.authService.userlogin(req.body);
+                res.cookie("ecom-access-token", accessToken, {
+                    httpOnly: true,
+                    secure: config_1.SECURE,
+                    sameSite: "strict",
+                    maxAge: Number(config_1.ACCESS_TOKEN_MAXAGE),
+                })
+                    .cookie("ecom-refresh-token", refreshToken, {
+                    httpOnly: true,
+                    secure: config_1.SECURE,
+                    sameSite: "strict",
+                    maxAge: Number(config_1.REFRESH_TOKEN_MAXAGE),
+                })
+                    .status(statusCodes_1.STATUS_CODES.CREATED)
+                    .json({
+                    success: true,
+                    message: "User login successful",
+                    user,
                 });
             }
             catch (error) {

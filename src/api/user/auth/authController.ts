@@ -1,8 +1,9 @@
+import mongoose from "mongoose";
+import { ACCESS_TOKEN_MAXAGE, REFRESH_TOKEN_MAXAGE, SECURE } from "../../../config";
 import { BadRequestError, NotFoundError } from "../../../constants/constants/customErrors";
 import { STATUS_CODES } from "../../../constants/constants/statusCodes";
-import { OTP_Method, OTP_Pupose } from "../../../enums/otp";
 import { otpValidatorSchema, otpVerificationValidationSchema } from "../../../validations/otpValidator";
-import { userValidationSchema } from "../../../validations/userValidator";
+import { loginSchema, userValidationSchema } from "../../../validations/userValidator";
 import { AuthService } from "./authService";
 import { Request, Response, NextFunction } from "express";
 
@@ -13,9 +14,9 @@ export class AuthController {
     // @route: POST /api/v1/auth/register
     async register(req: Request, res: Response, next: NextFunction) {
         try {
-            userValidationSchema.parse(req.body);
-
-            const { verificationMethod, ...userData } = req.body;
+            
+            const { verificationMethod, verificationId, ...userData } = req.body;
+            userValidationSchema.parse(userData);
 
             if (!verificationMethod) {
                 throw new BadRequestError("Verification method is required");
@@ -26,33 +27,33 @@ export class AuthController {
                 throw new BadRequestError(`Invalid verification method. Allowed values: ${allowedVerificationMethods.join(", ")}`);
             }
 
+            if(!verificationId||!mongoose.Types.ObjectId.isValid(verificationId)){
+                throw new BadRequestError("Invalid verification Id")
+            }
+
             const { accessToken, refreshToken, user } = await this.authService.registerUser({
                 verificationMethod,
+                verificationId,
                 ...userData,
             });
-
-            // Constants can live in config
-            const ACCESS_TOKEN_MAXAGE = 15 * 60 * 1000;
-            const REFRESH_TOKEN_MAXAGE = 7 * 24 * 60 * 60 * 1000;
-            const SECURE = process.env.NODE_ENV === "production";
 
             res.cookie("ecom-access-token", accessToken, {
                 httpOnly: true,
                 secure: SECURE,
                 sameSite: "strict",
-                maxAge: ACCESS_TOKEN_MAXAGE,
+                maxAge: Number(ACCESS_TOKEN_MAXAGE),
             })
                 .cookie("ecom-refresh-token", refreshToken, {
                     httpOnly: true,
                     secure: SECURE,
                     sameSite: "strict",
-                    maxAge: REFRESH_TOKEN_MAXAGE,
+                    maxAge: Number(REFRESH_TOKEN_MAXAGE),
                 })
                 .status(STATUS_CODES.CREATED)
                 .json({
                     success: true,
                     message: "User registration successful",
-                    user, // 🚨 Make sure `user` excludes sensitive info
+                    user,
                 });
         } catch (error) {
             console.error(error);
@@ -65,28 +66,16 @@ export class AuthController {
     async sendOTP(req: Request, res: Response, next: NextFunction) {
         try {
             otpValidatorSchema.parse(req.body);
-            const { target, method, purpose, code } = req.body;
-
-            if (method === OTP_Method.EMAIL && !target.includes("@")) {
-                return res.status(400).json({ message: "Invalid email address" });
-            }
-
-            if (method === OTP_Method.PHONE && !/^\d{10}$/.test(target)) {
-                return res.status(400).json({ message: "Invalid phone number" });
-            }
-            if (method === OTP_Method.PHONE && !code) {
-                return res.status(400).json({ message: "Code is required for phone verification" });
-            }
+            const { target, purpose, code } = req.body;
 
             const result = await this.authService.sendOTP({
                 target,
-                method,
                 purpose,
                 code,
             });
             res.status(STATUS_CODES.CREATED).json({
-                message: "OTP sent successfully",
-                data: result,
+                success: true,
+                message: `OTP successfully sent`,
             });
         } catch (error) {
             next(error);
@@ -98,13 +87,43 @@ export class AuthController {
     async verifyOtp(req: Request, res: Response, next: NextFunction) {
         try {
             otpVerificationValidationSchema.parse(req.body);
-            const { target, method, purpose, code, otp } = req.body;
+            const { target, purpose, otp, code } = req.body;
 
-            const result = await this.authService.verifyOtp({ target, method, purpose, otp, code });
+            const result = await this.authService.verifyOtp({ target, purpose, otp, code });
             res.status(STATUS_CODES.OK).json({
                 message: "OTP verification  successfull",
                 data: result,
             });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    // @description: Login user
+    // @route: POST /api/v1/auth/login
+    async userLogin(req: Request, res: Response, next: NextFunction) {
+        try {
+            loginSchema.parse(req.body);
+            const { user, accessToken, refreshToken } = await this.authService.userlogin(req.body);
+
+            res.cookie("ecom-access-token", accessToken, {
+                httpOnly: true,
+                secure: SECURE,
+                sameSite: "strict",
+                maxAge: Number(ACCESS_TOKEN_MAXAGE),
+            })
+                .cookie("ecom-refresh-token", refreshToken, {
+                    httpOnly: true,
+                    secure: SECURE,
+                    sameSite: "strict",
+                    maxAge: Number(REFRESH_TOKEN_MAXAGE),
+                })
+                .status(STATUS_CODES.CREATED)
+                .json({
+                    success: true,
+                    message: "User login successful",
+                    user,
+                });
         } catch (error) {
             next(error);
         }

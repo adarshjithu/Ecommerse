@@ -9,10 +9,9 @@ const otpSchema = new mongoose_1.default.Schema({
     target: { type: String, required: true },
     otp: { type: String, required: true },
     code: { type: String },
-    method: { type: String, enum: Object.values(otp_1.OTP_Method), required: true },
     purpose: {
         type: String,
-        enum: Object.values(otp_1.OTP_Pupose),
+        enum: Object.values(otp_1.OTP_Purpose),
         required: true,
         default: "login-email",
     },

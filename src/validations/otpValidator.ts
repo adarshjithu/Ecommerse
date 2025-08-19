@@ -1,29 +1,18 @@
 import { z } from "zod";
+import { OTP_Purpose } from "../enums/otp";
 
 export const otpValidatorSchema = z.object({
     target: z.string().min(1, "Target is required"),
-    method: z.enum(["email", "phone"], "Invalid OTP method"),
-    purpose: z.enum([
-        "login-email",
-        "login-phone",
-        "reset-password",
-        "verify-email",
-        "verify-phone"
-    ], "Invalid OTP purpose"),
-    code: z.string().optional()
-})
 
+    purpose: z.enum(
+        ["login-email", "login-phone", "register-email", "register-phone", "forget-password-email", "forget-password-phone"],
+        "Invalid OTP purpose"
+    ),
+    code: z.string().optional(),
+});
 
 export const otpVerificationValidationSchema = z.object({
     target: z.string().min(1, "Target is required"),
-    method: z.enum(["email", "phone"], "Invalid OTP method"),
-    otp:z.string().min(1,"OTP is required"),
-    purpose: z.enum([
-        "login-email",
-        "login-phone",
-        "reset-password",
-        "verify-email",
-        "verify-phone"
-    ], "Invalid OTP purpose"),
-    code: z.string().optional()
-})
+    otp: z.string().min(1, "OTP is required"),
+    purpose: z.enum(["login-email", "login-phone", "forget-password-email", "forget-password-phone", "register-email","register-phone"], "Invalid OTP purpose"),
+});

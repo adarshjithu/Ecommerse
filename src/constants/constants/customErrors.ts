@@ -130,3 +130,13 @@ export class EmptyRequestBodyError extends Error {
        
     }
 }
+
+
+export class ResourceGoneError extends Error {
+    status: number;
+    constructor(message: string = "The requested resource is no longer available") {
+        super(message);
+        this.status = 410; // Gone
+        this.name = "ResourceGoneError";
+    }
+}
