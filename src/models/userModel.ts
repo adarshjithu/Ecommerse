@@ -66,7 +66,7 @@ const userSchema: Schema<IUser> = new mongoose.Schema({
     code: { type: String },
     number: { type: String, required: true, unique: true },
   },
-  password: { type: String, required: true },
+  password: { type: String },
   isEmailVerified: { type: Boolean, default: false },
   isPhoneVerified: { type: Boolean, default: false },
   isGoogleVerified: { type: Boolean, default: false },

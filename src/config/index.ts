@@ -17,3 +17,4 @@ export const ACCESS_TOKEN_MAXAGE = process.env.ACCESS_TOKEN_MAXAGE
 export const REFRESH_TOKEN_MAXAGE = process.env.REFRESH_TOKEN_MAXAGE
 
 export const SECURE = process.env.NODE_ENV === "production"
+export const GOOGLE_CLIENT_ID =process.env.GOOGLE_CLIENT_ID

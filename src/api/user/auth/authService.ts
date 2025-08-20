@@ -433,4 +433,37 @@ export class AuthService {
 
         return { message: "✅ Password updated successfully" };
     }
+
+    // Create account with google
+    async createAccountWithGoogle(userData: { email: string; profilePicture: string; name: string }): Promise<IAuthResponse> {
+        let user = await this.authRepository.findOne({ email: userData?.email });
+        if (user) {
+            throw new ConflictError("Email already in use");
+        }
+        const newUser = { ...userData, password: null, isGoogleVerified: true };
+        user = await this.authRepository.create(newUser);
+        const accessToken = generateAccessToken({ role: user.role, userId: user?._id });
+        const refreshToken = generateRefreshToken({ role: user.role, userId: user?._id });
+        return { user, accessToken, refreshToken };
+    }
+
+    async googleLogin(email: string): Promise<IAuthResponse> {
+        const user = await this.authRepository.findOne({ email: email });
+        if (!user) {
+            throw new NotFoundError("User not found");
+        }
+        if (!user?.isGoogleVerified) {
+            throw new ForbiddenError("Google verfication failed");
+        }
+        if (user?.isBlocked) {
+            throw new ForbiddenError("User has been blocked");
+        }
+
+        if (user?.isDeleted) {
+            throw new ResourceGoneError("This account has been deleted");
+        }
+        const accessToken = generateAccessToken({ role: user.role, userId: user?._id });
+        const refreshToken = generateRefreshToken({ role: user.role, userId: user?._id });
+        return { user, accessToken, refreshToken };
+    }
 }
