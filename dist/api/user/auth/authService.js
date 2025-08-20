@@ -365,5 +365,60 @@ class AuthService {
             return;
         });
     }
+    resetPassword(userId, oldPassword, newPassword) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const user = yield this.authRepository.findById(userId);
+            if (!user)
+                throw new customErrors_1.NotFoundError("User not found");
+            if (user.isBlocked)
+                throw new customErrors_1.ForbiddenError("User has been blocked");
+            if (user.isDeleted)
+                throw new customErrors_1.ResourceGoneError("This account has been deleted");
+            const passwordValid = yield (0, passwordUtils_1.comparePassword)(oldPassword, user.password);
+            if (!passwordValid)
+                throw new customErrors_1.UnAuthorizedError("The old password you entered is incorrect");
+            const isSamePassword = yield (0, passwordUtils_1.comparePassword)(newPassword, user.password);
+            if (isSamePassword)
+                throw new customErrors_1.ConflictError("New password cannot be the same as the old password");
+            const hashedPassword = yield (0, passwordUtils_1.hashPassword)(newPassword);
+            user.password = hashedPassword;
+            yield user.save();
+            return { message: "✅ Password updated successfully" };
+        });
+    }
+    // Create account with google
+    createAccountWithGoogle(userData) {
+        return __awaiter(this, void 0, void 0, function* () {
+            let user = yield this.authRepository.findOne({ email: userData === null || userData === void 0 ? void 0 : userData.email });
+            if (user) {
+                throw new customErrors_1.ConflictError("Email already in use");
+            }
+            const newUser = Object.assign(Object.assign({}, userData), { password: null, isGoogleVerified: true });
+            user = yield this.authRepository.create(newUser);
+            const accessToken = (0, tokenUtils_1.generateAccessToken)({ role: user.role, userId: user === null || user === void 0 ? void 0 : user._id });
+            const refreshToken = (0, tokenUtils_1.generateRefreshToken)({ role: user.role, userId: user === null || user === void 0 ? void 0 : user._id });
+            return { user, accessToken, refreshToken };
+        });
+    }
+    googleLogin(email) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const user = yield this.authRepository.findOne({ email: email });
+            if (!user) {
+                throw new customErrors_1.NotFoundError("User not found");
+            }
+            if (!(user === null || user === void 0 ? void 0 : user.isGoogleVerified)) {
+                throw new customErrors_1.ForbiddenError("Google verfication failed");
+            }
+            if (user === null || user === void 0 ? void 0 : user.isBlocked) {
+                throw new customErrors_1.ForbiddenError("User has been blocked");
+            }
+            if (user === null || user === void 0 ? void 0 : user.isDeleted) {
+                throw new customErrors_1.ResourceGoneError("This account has been deleted");
+            }
+            const accessToken = (0, tokenUtils_1.generateAccessToken)({ role: user.role, userId: user === null || user === void 0 ? void 0 : user._id });
+            const refreshToken = (0, tokenUtils_1.generateRefreshToken)({ role: user.role, userId: user === null || user === void 0 ? void 0 : user._id });
+            return { user, accessToken, refreshToken };
+        });
+    }
 }
 exports.AuthService = AuthService;

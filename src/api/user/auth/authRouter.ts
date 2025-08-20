@@ -13,16 +13,17 @@ const authService = new AuthService(authRepository,otpRepository);
 const controller = new AuthController(authService);
 
 
-authRouter.post("/send-otp", (req, res, next) => controller.sendOTP(req, res, next));
-authRouter.post("/verify-otp", (req, res, next) => controller.verifyOtp(req, res, next));
-authRouter.post("/register",(req,res,next)=>controller.register(req,res,next));
-authRouter.post("/login",(req,res,next)=>controller.userLogin(req,res,next));
-authRouter.post('/login-email',(req,res,next)=>controller.userLoginWithEmailOtp(req,res,next));
-authRouter.post("/login-phone",(req,res,next)=>controller.userLoginWithPhoneOtp(req,res,next));
-authRouter.post('/forget-password',(req,res,next)=>controller.forgetPassword(req,res,next));
-authRouter.post('/reset-password',authenticate(),(req,res,next)=>controller.resetPassword(req,res,next));
-authRouter.post('/google-signup',(req,res,next)=>controller.signUpWithGoogle(req,res,next));
-authRouter.post('/google-login',(req,res,next)=>controller.googleLogin(req,res,next))
+authRouter.post("/send-otp", controller.sendOTP.bind(controller));
+authRouter.post("/verify-otp", controller.verifyOtp.bind(controller));
+authRouter.post("/register", controller.register.bind(controller));
+authRouter.post("/login", controller.userLogin.bind(controller));
+authRouter.post("/login-email", controller.userLoginWithEmailOtp.bind(controller));
+authRouter.post("/login-phone", controller.userLoginWithPhoneOtp.bind(controller));
+authRouter.post("/forget-password", controller.forgetPassword.bind(controller));
+authRouter.post("/reset-password", authenticate(), controller.resetPassword.bind(controller));
+authRouter.post("/google-signup", controller.signUpWithGoogle.bind(controller));
+authRouter.post("/google-login", controller.googleLogin.bind(controller));
+
 
 
 export default authRouter;

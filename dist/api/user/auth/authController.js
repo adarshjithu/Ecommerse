@@ -30,6 +30,7 @@ const customErrors_1 = require("../../../constants/constants/customErrors");
 const statusCodes_1 = require("../../../constants/constants/statusCodes");
 const otpValidator_1 = require("../../../validations/otpValidator");
 const userValidator_1 = require("../../../validations/userValidator");
+const google_auth_library_1 = require("google-auth-library");
 class AuthController {
     constructor(authService) {
         this.authService = authService;
@@ -247,11 +248,102 @@ class AuthController {
     // @route: POST /api/v1/auth/reset-password
     resetPassword(req, res, next) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             try {
                 const { oldPassword, newPassword } = req.body;
+                if (!oldPassword || !newPassword)
+                    throw new customErrors_1.NotFoundError("Old password and new password is required");
+                yield this.authService.resetPassword((_a = req.user) === null || _a === void 0 ? void 0 : _a._id, oldPassword, newPassword);
                 res.status(statusCodes_1.STATUS_CODES.OK).json({
                     success: true,
-                    message: "✅ You have successfully updated your password. Please log in with your new password.",
+                    message: "✅ You have successfully updated your password",
+                });
+            }
+            catch (error) {
+                next(error);
+            }
+        });
+    }
+    // @description: Create account with google
+    // @route: POST /api/v1/auth/google-signup
+    signUpWithGoogle(req, res, next) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { credential } = req.body;
+                const client = new google_auth_library_1.OAuth2Client(config_1.GOOGLE_CLIENT_ID);
+                if (!credential)
+                    throw new customErrors_1.NotFoundError("Credential is required");
+                const ticket = yield client.verifyIdToken({
+                    idToken: credential,
+                    audience: config_1.GOOGLE_CLIENT_ID,
+                });
+                const payload = ticket.getPayload();
+                if (!payload) {
+                    throw new customErrors_1.UnAuthorizedError("Invalid google token");
+                }
+                const { email, given_name, picture } = payload;
+                const userObj = { name: given_name, email, profilePicture: picture };
+                const { user, accessToken, refreshToken } = yield this.authService.createAccountWithGoogle(userObj);
+                res.cookie("ecom-access-token", accessToken, {
+                    httpOnly: true,
+                    secure: config_1.SECURE,
+                    sameSite: "strict",
+                    maxAge: Number(config_1.ACCESS_TOKEN_MAXAGE),
+                })
+                    .cookie("ecom-refresh-token", refreshToken, {
+                    httpOnly: true,
+                    secure: config_1.SECURE,
+                    sameSite: "strict",
+                    maxAge: Number(config_1.REFRESH_TOKEN_MAXAGE),
+                })
+                    .status(statusCodes_1.STATUS_CODES.CREATED)
+                    .json({
+                    success: true,
+                    message: "✅ User login successful",
+                    user,
+                });
+            }
+            catch (error) {
+                next(error);
+            }
+        });
+    }
+    // @description: Login with google
+    // @route: POST /api/v1/auth/google-login
+    googleLogin(req, res, next) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { credential } = req.body;
+                const client = new google_auth_library_1.OAuth2Client(config_1.GOOGLE_CLIENT_ID);
+                if (!credential)
+                    throw new customErrors_1.NotFoundError("Credential is required");
+                const ticket = yield client.verifyIdToken({
+                    idToken: credential,
+                    audience: config_1.GOOGLE_CLIENT_ID,
+                });
+                const payload = ticket.getPayload();
+                if (!payload) {
+                    throw new customErrors_1.UnAuthorizedError("Invalid google token");
+                }
+                const { email } = payload;
+                const { user, accessToken, refreshToken } = yield this.authService.googleLogin(email);
+                res.cookie("ecom-access-token", accessToken, {
+                    httpOnly: true,
+                    secure: config_1.SECURE,
+                    sameSite: "strict",
+                    maxAge: Number(config_1.ACCESS_TOKEN_MAXAGE),
+                })
+                    .cookie("ecom-refresh-token", refreshToken, {
+                    httpOnly: true,
+                    secure: config_1.SECURE,
+                    sameSite: "strict",
+                    maxAge: Number(config_1.REFRESH_TOKEN_MAXAGE),
+                })
+                    .status(statusCodes_1.STATUS_CODES.CREATED)
+                    .json({
+                    success: true,
+                    message: "✅ User login successful",
+                    user,
                 });
             }
             catch (error) {
